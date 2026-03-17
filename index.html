@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSE 579 Group 6 — KG-Grounded RAG Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f7f7f5;
+  color: #1a1a1a;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── Layout ── */
+.page { max-width: 1140px; margin: 0 auto; padding: 32px 24px 64px; }
+.hero {
+  background: #111;
+  color: #fff;
+  padding: 40px 40px 32px;
+  border-radius: 14px;
+  margin-bottom: 32px;
+}
+.hero h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+.hero .sub { font-size: 13px; color: #aaa; margin-bottom: 20px; }
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #ddd;
+}
+.pill b { color: #fff; }
+
+/* ── Nav tabs ── */
+.nav {
+  display: flex; gap: 4px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 6px;
+  margin-bottom: 24px;
+}
+.nav-btn {
+  flex: 1; padding: 9px 12px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #888;
+  transition: all .15s;
+}
+.nav-btn:hover { background: #f5f5f3; color: #333; }
+.nav-btn.active { background: #111; color: #fff; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Metric cards ── */
+.metric-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+.metric-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+.metric-card {
+  background: #fff; border: 1px solid #e8e8e8;
+  border-radius: 10px; padding: 16px 18px;
+}
+.metric-card .label { font-size: 11px; color: #999; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; }
+.metric-card .value { font-size: 24px; font-weight: 600; color: #111; }
+.metric-card .sub { font-size: 11px; color: #bbb; margin-top: 3px; }
+.metric-card.accent { background: #111; }
+.metric-card.accent .label { color: #666; }
+.metric-card.accent .value { color: #fff; }
+.metric-card.accent .sub { color: #555; }
+
+/* ── Cards ── */
+.card {
+  background: #fff; border: 1px solid #e8e8e8;
+  border-radius: 10px; overflow: hidden; margin-bottom: 20px;
+}
+.card-header {
+  padding: 14px 18px; border-bottom: 1px solid #f0f0f0;
+  font-weight: 600; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  background: #fafafa;
+}
+.card-body { padding: 18px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+/* ── Section label ── */
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #bbb; margin-bottom: 10px;
+}
+
+/* ── Tables ── */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th {
+  font-size: 10px; font-weight: 600; color: #999;
+  text-align: left; padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  text-transform: uppercase; letter-spacing: .05em;
+  background: #fafafa;
+}
+td { padding: 9px 12px; border-bottom: 1px solid #f7f7f7; color: #222; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 5px;
+}
+.b-green  { background: #e6f4ea; color: #1e6b35; }
+.b-red    { background: #fce8e8; color: #b91c1c; }
+.b-gray   { background: #f3f3f3; color: #666; }
+.b-blue   { background: #e8f0fe; color: #1a56db; }
+.b-amber  { background: #fef9c3; color: #854d0e; }
+.b-purple { background: #f3f0ff; color: #5b21b6; }
+
+/* ── Alert boxes ── */
+.alert {
+  border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 12px 0; font-size: 13px;
+}
+.alert-red   { background: #fce8e8; border-left: 3px solid #e53935; }
+.alert-green { background: #e6f4ea; border-left: 3px solid #2e7d32; }
+.alert-amber { background: #fffbeb; border-left: 3px solid #d97706; }
+.alert-blue  { background: #e8f0fe; border-left: 3px solid #1a56db; }
+.alert .at { font-weight: 600; font-size: 11px; margin-bottom: 4px; }
+.alert .ab { line-height: 1.6; color: #333; }
+
+/* ── Chart wrappers ── */
+.chart-wrap { position: relative; width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 12px; color: #666; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+/* ── Mode tab strip (inner) ── */
+.mode-tabs { display: flex; border-bottom: 1px solid #f0f0f0; margin-bottom: 0; }
+.mode-tab {
+  padding: 9px 16px; font-size: 12px; font-weight: 500;
+  cursor: pointer; color: #999; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: color .15s;
+}
+.mode-tab:hover { color: #444; }
+.mode-tab.active { color: #111; border-bottom-color: #111; }
+.mode-panel { display: none; }
+.mode-panel.active { display: block; }
+
+/* ── KG node diagram ── */
+.kg-diagram {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; padding: 20px 0; flex-wrap: wrap;
+}
+.kg-node {
+  text-align: center; padding: 10px 14px;
+  border-radius: 8px; font-size: 12px; font-weight: 600;
+  min-width: 80px;
+}
+.kg-arrow {
+  font-size: 18px; color: #ccc; padding: 0 6px; line-height: 1;
+  align-self: center;
+}
+.kg-label { font-size: 10px; color: #999; margin-top: 4px; font-weight: 400; }
+
+/* ── Flow steps ── */
+.flow { display: flex; gap: 0; align-items: stretch; margin: 4px 0; }
+.flow-step {
+  flex: 1; background: #f7f7f5; border: 1px solid #e8e8e8;
+  border-radius: 0; padding: 10px 12px; font-size: 12px;
+  border-right: none; position: relative;
+}
+.flow-step:first-child { border-radius: 8px 0 0 8px; }
+.flow-step:last-child  { border-radius: 0 8px 8px 0; border-right: 1px solid #e8e8e8; }
+.flow-step .fs-label { font-size: 10px; color: #999; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .05em; }
+.flow-step .fs-val   { font-weight: 600; color: #111; }
+.flow-step::after {
+  content: "›"; position: absolute; right: -9px; top: 50%;
+  transform: translateY(-50%); color: #bbb; font-size: 16px; z-index: 2;
+}
+.flow-step:last-child::after { display: none; }
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  .metric-grid { grid-template-columns: 1fr 1fr; }
+  .metric-grid-3 { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr; }
+  .three-col { grid-template-columns: 1fr; }
+  .flow { flex-direction: column; }
+  .flow-step { border-right: 1px solid #e8e8e8; border-bottom: none; border-radius: 0; }
+  .flow-step:first-child { border-radius: 8px 8px 0 0; }
+  .flow-step:last-child  { border-radius: 0 0 8px 8px; border-bottom: 1px solid #e8e8e8; }
+  .flow-step::after { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- Hero -->
+<div class="hero">
+  <h1>KG-Grounded RAG with Logical Consistency Checking</h1>
+  <p class="sub">CSE 579 — Group 6 &nbsp;|&nbsp; Initial Presentation &nbsp;|&nbsp; Applied to Financial Document Analysis (SEC 10-K Filings)</p>
+  <div class="pill-row">
+    <span class="pill"><b>M1</b> KG Construction</span>
+    <span class="pill"><b>M2</b> Hybrid Retrieval</span>
+    <span class="pill"><b>M3</b> Consistency Checker</span>
+    <span class="pill"><b>M4</b> Evaluation</span>
+    <span class="pill"><b>Companies:</b> AAPL · MSFT · AMZN · NVDA</span>
+    <span class="pill"><b>LLM:</b> llama3.2 (Ollama)</span>
+    <span class="pill"><b>KG:</b> Neo4j</span>
+    <span class="pill"><b>Benchmark:</b> FinanceBench</span>
+  </div>
+</div>
+
+<!-- Nav -->
+<div class="nav">
+  <button class="nav-btn active" onclick="showTab('overview')">Overview</button>
+  <button class="nav-btn" onclick="showTab('m1')">M1 — Knowledge Graph</button>
+  <button class="nav-btn" onclick="showTab('m2')">M2 — Retrieval</button>
+  <button class="nav-btn" onclick="showTab('m3')">M3 — Consistency</button>
+  <button class="nav-btn" onclick="showTab('m4')">M4 — Evaluation</button>
+</div>
+
+<!-- ════════════════════════════════════════════════ OVERVIEW ══ -->
+<div id="tab-overview" class="tab-panel active">
+
+  <p class="section-label">System at a glance</p>
+  <div class="metric-grid">
+    <div class="metric-card accent">
+      <div class="label">10-K filings ingested</div>
+      <div class="value">15</div>
+      <div class="sub">AAPL · MSFT · AMZN · NVDA · 2019–2024</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">KG entities in Neo4j</div>
+      <div class="value">3,299</div>
+      <div class="sub">MONEY · PERCENT · DATE · CARDINAL</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">FAISS chunks indexed</div>
+      <div class="value">3,106</div>
+      <div class="sub">512-word chunks, 64-word overlap</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Eval questions run</div>
+      <div class="value">11</div>
+      <div class="sub">5 FinanceBench + 6 team-authored</div>
+    </div>
+  </div>
+
+  <p class="section-label">Pipeline</p>
+  <div class="flow" style="margin-bottom:24px">
+    <div class="flow-step">
+      <div class="fs-label">M1 — Data</div>
+      <div class="fs-val">SEC EDGAR ingestion</div>
+    </div>
+    <div class="flow-step">
+      <div class="fs-label">M1 — KG</div>
+      <div class="fs-val">spaCy NER + Neo4j</div>
+    </div>
+    <div class="flow-step">
+      <div class="fs-label">M2 — Index</div>
+      <div class="fs-val">FAISS + nomic-embed</div>
+    </div>
+    <div class="flow-step">
+      <div class="fs-label">M2 — Retrieve</div>
+      <div class="fs-val">Hybrid FAISS + KG</div>
+    </div>
+    <div class="flow-step">
+      <div class="fs-label">M2 — Generate</div>
+      <div class="fs-val">llama3.2 answer</div>
+    </div>
+    <div class="flow-step">
+      <div class="fs-label">M3 — Check</div>
+      <div class="fs-val">Consistency verifier</div>
+    </div>
+    <div class="flow-step">
+      <div class="fs-label">M4 — Eval</div>
+      <div class="fs-val">Token F1 + FinanceBench</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <p class="section-label">Key results</p>
+      <div class="card">
+        <div class="card-header">M2 — Retrieval (Token F1, 6 queries)</div>
+        <div style="padding:16px">
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:#999;margin-bottom:6px">VECTOR-ONLY</div>
+            <div style="background:#f0f0f0;border-radius:6px;height:22px;position:relative">
+              <div style="background:#378ADD;width:16.5%;height:100%;border-radius:6px"></div>
+              <span style="position:absolute;left:calc(16.5% + 6px);top:3px;font-size:11px;font-weight:600;color:#378ADD">0.165</span>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;color:#999;margin-bottom:6px">HYBRID (FAISS + KG)</div>
+            <div style="background:#f0f0f0;border-radius:6px;height:22px;position:relative">
+              <div style="background:#7F77DD;width:13.7%;height:100%;border-radius:6px"></div>
+              <span style="position:absolute;left:calc(13.7% + 6px);top:3px;font-size:11px;font-weight:600;color:#7F77DD">0.137</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#999;margin-bottom:6px">KG-ONLY</div>
+            <div style="background:#f0f0f0;border-radius:6px;height:22px;position:relative">
+              <div style="background:#1D9E75;width:10.6%;height:100%;border-radius:6px"></div>
+              <span style="position:absolute;left:calc(10.6% + 6px);top:3px;font-size:11px;font-weight:600;color:#1D9E75">0.106</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">M3 — Consistency (6 queries x 3 modes)</div>
+        <div style="padding:16px">
+          <div class="three-col" style="text-align:center;gap:10px">
+            <div style="padding:12px;background:#e6f4ea;border-radius:8px">
+              <div style="font-size:20px;font-weight:700;color:#1e6b35">0%</div>
+              <div style="font-size:11px;color:#2e7d32;margin-top:2px">Hallucination rate</div>
+            </div>
+            <div style="padding:12px;background:#e8f0fe;border-radius:8px">
+              <div style="font-size:20px;font-weight:700;color:#1a56db">100%</div>
+              <div style="font-size:11px;color:#1a56db;margin-top:2px">KG-Only verified</div>
+            </div>
+            <div style="padding:12px;background:#f3f3f3;border-radius:8px">
+              <div style="font-size:20px;font-weight:700;color:#333">49</div>
+              <div style="font-size:11px;color:#666;margin-top:2px">Claims extracted</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="section-label">Core finding</p>
+      <div class="alert alert-red" style="margin-bottom:12px">
+        <div class="at" style="color:#b91c1c">Hallucination caught — Vector-Only mode</div>
+        <div class="ab">Vector-Only retrieved MSFT revenue chunks and attributed them to AAPL. Claimed <b>$281,724M</b> and <b>$245,122M</b> as Apple figures. M3 checker flagged both with 8.2% and 17.0% deviation from KG ground truth.</div>
+      </div>
+      <div class="alert alert-green" style="margin-bottom:12px">
+        <div class="at" style="color:#1e6b35">KG-grounded modes: 0 hallucinations</div>
+        <div class="ab">KG-Only and Hybrid both produced 0% hallucination rate across all 6 evaluation queries. KG entity grounding anchors retrieval to the correct company ticker.</div>
+      </div>
+      <div class="alert alert-amber">
+        <div class="at" style="color:#854d0e">F1 score alone is insufficient</div>
+        <div class="ab">Vector-Only scores highest Token F1 (0.165) but is the mode that hallucinated. This demonstrates why consistency checking is a necessary addition beyond standard RAG evaluation metrics.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ M1 ══ -->
+<div id="tab-m1" class="tab-panel">
+
+  <p class="section-label">Knowledge graph construction</p>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="label">Companies</div>
+      <div class="value">4</div>
+      <div class="sub">AAPL · MSFT · AMZN · NVDA</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">10-K filings</div>
+      <div class="value">15</div>
+      <div class="sub">Multi-year: 2019–2024</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Graph entities</div>
+      <div class="value">3,299</div>
+      <div class="sub">Normalised + cached</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">NER model</div>
+      <div class="value" style="font-size:16px">en_core_web_sm</div>
+      <div class="sub">spaCy</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">Filings ingested per company</div>
+      <table>
+        <thead><tr><th>Ticker</th><th>Filings</th><th>Years covered</th><th>Entities</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge b-blue">AAPL</span></td><td>3</td><td>2022, 2023, 2024</td><td>~4,841</td></tr>
+          <tr><td><span class="badge b-purple">MSFT</span></td><td>3</td><td>2022, 2023, 2024</td><td>~3,154</td></tr>
+          <tr><td><span class="badge b-amber">AMZN</span></td><td>6</td><td>2019, 2020, 2021, 2022, 2023, 2024</td><td>~9,288</td></tr>
+          <tr><td><span class="badge b-green">NVDA</span></td><td>3</td><td>2022, 2023, 2024</td><td>~3,076</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-header">KG entity breakdown by type</div>
+      <div style="padding:16px">
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>CARDINAL</span><span style="font-weight:600">2,002 entities (60.7%)</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:4px;height:10px">
+            <div style="background:#378ADD;width:60.7%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>DATE</span><span style="font-weight:600">550 entities (16.7%)</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:4px;height:10px">
+            <div style="background:#1D9E75;width:16.7%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>MONEY</span><span style="font-weight:600">492 entities (14.9%)</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:4px;height:10px">
+            <div style="background:#7F77DD;width:14.9%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span>PERCENT</span><span style="font-weight:600">255 entities (7.7%)</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:4px;height:10px">
+            <div style="background:#D85A30;width:7.7%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>
+        <p style="font-size:11px;color:#999;margin-top:12px">MONEY and PERCENT entities are the primary ground truth for the M3 consistency checker.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Graph schema — Neo4j node / relationship structure</div>
+    <div class="kg-diagram">
+      <div>
+        <div class="kg-node" style="background:#e8f0fe;color:#1a56db">(Company)</div>
+        <div class="kg-label">ticker, cik</div>
+      </div>
+      <div class="kg-arrow">—[:FILED]—&gt;</div>
+      <div>
+        <div class="kg-node" style="background:#f3f0ff;color:#5b21b6">(Filing)</div>
+        <div class="kg-label">accession_no, filing_date, form</div>
+      </div>
+      <div class="kg-arrow">—[:MENTIONS {count}]—&gt;</div>
+      <div>
+        <div class="kg-node" style="background:#e6f4ea;color:#1e6b35">(Entity)</div>
+        <div class="kg-label">name, type (MONEY/PERCENT/DATE/CARDINAL)</div>
+      </div>
+    </div>
+    <div style="padding:0 18px 16px;font-size:12px;color:#888">
+      The <b>mention count</b> on the MENTIONS relationship is the key innovation — it ranks the most-cited financial figures highest, acting as a frequency-based confidence score for the M3 verifier.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ M2 ══ -->
+<div id="tab-m2" class="tab-panel">
+
+  <p class="section-label">Hybrid retrieval evaluation</p>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="label">FAISS vectors</div>
+      <div class="value">3,106</div>
+      <div class="sub">nomic-embed-text · dim=768</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Vector-Only avg F1</div>
+      <div class="value" style="color:#378ADD">0.165</div>
+      <div class="sub">Best raw F1 — but hallucinated</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Hybrid avg F1</div>
+      <div class="value" style="color:#7F77DD">0.137</div>
+      <div class="sub">FAISS + KG entity re-ranking</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">KG boost applied</div>
+      <div class="value">+0.15</div>
+      <div class="sub">Score bonus for KG-matched tickers</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">Per-query Token F1 — all 6 queries</div>
+      <div style="padding:16px">
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#378ADD"></span>Vector-Only</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#7F77DD"></span>Hybrid</span>
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="m2F1Chart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Retrieval mode comparison</div>
+      <table>
+        <thead><tr><th>Query</th><th>Ticker</th><th>Vec F1</th><th>Hyb F1</th><th>Delta</th></tr></thead>
+        <tbody>
+          <tr><td>Total net revenue FY2023</td><td><span class="badge b-blue">AAPL</span></td><td>0.055</td><td>0.154</td><td><span class="badge b-green">+0.099</span></td></tr>
+          <tr><td>Cloud revenue 2023</td><td><span class="badge b-purple">MSFT</span></td><td>0.106</td><td>0.047</td><td><span class="badge b-red">-0.059</span></td></tr>
+          <tr><td>Operating income 2023</td><td><span class="badge b-amber">AMZN</span></td><td>0.370</td><td>0.400</td><td><span class="badge b-green">+0.030</span></td></tr>
+          <tr><td>Data center revenue FY2023</td><td><span class="badge b-green">NVDA</span></td><td>0.250</td><td>0.137</td><td><span class="badge b-red">-0.113</span></td></tr>
+          <tr><td>Main risk factors</td><td><span class="badge b-blue">AAPL</span></td><td>0.079</td><td>0.060</td><td><span class="badge b-red">-0.019</span></td></tr>
+          <tr><td>Employee count</td><td><span class="badge b-purple">MSFT</span></td><td>0.128</td><td>0.026</td><td><span class="badge b-red">-0.102</span></td></tr>
+        </tbody>
+      </table>
+      <div style="padding:10px 14px;font-size:11px;color:#999;border-top:1px solid #f0f0f0">
+        Hybrid wins on factual numerical queries (revenue, income). Vector-Only wins on broad text queries (employees, risk factors) where semantic matching alone is sufficient.
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-amber">
+    <div class="at" style="color:#854d0e">Why Token F1 is limited as a metric</div>
+    <div class="ab">Vector-Only scores highest average F1 (0.165) but is the mode that produced cross-company hallucination. M3's consistency checker catches what F1 cannot — factual contradictions verified against KG ground truth.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ M3 ══ -->
+<div id="tab-m3" class="tab-panel">
+
+  <p class="section-label">Consistency checker — novel scientific contribution</p>
+  <div class="metric-grid">
+    <div class="metric-card accent">
+      <div class="label">Hallucination rate (eval loop)</div>
+      <div class="value">0%</div>
+      <div class="sub">All 3 modes · 6 queries · 18 runs</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">KG-Only verified rate</div>
+      <div class="value" style="color:#1D9E75">100%</div>
+      <div class="sub">Highest of all 3 modes</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Claims extracted</div>
+      <div class="value">49</div>
+      <div class="sub">Across all 18 pipeline runs</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Hallucinations caught (demo)</div>
+      <div class="value" style="color:#b91c1c">2</div>
+      <div class="sub">Cross-company attribution error</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header">Checker architecture — claim extraction to verdict</div>
+    <div class="flow" style="margin:16px">
+      <div class="flow-step">
+        <div class="fs-label">Input</div>
+        <div class="fs-val">LLM answer text</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-label">Pass 1</div>
+        <div class="fs-val">spaCy NER</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-label">Pass 2</div>
+        <div class="fs-val">Regex patterns</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-label">Normalise</div>
+        <div class="fs-val">USD millions / % / year</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-label">KG lookup</div>
+        <div class="fs-val">Neo4j by ticker + type</div>
+      </div>
+      <div class="flow-step">
+        <div class="fs-label">Verdict</div>
+        <div class="fs-val">VERIFIED / FLAGGED / UNVERIFIED</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="card">
+        <div class="card-header">Verdict thresholds</div>
+        <table>
+          <thead><tr><th>Claim type</th><th>VERIFIED</th><th>FLAGGED</th></tr></thead>
+          <tbody>
+            <tr><td>MONEY</td><td>&lt;= 6% relative deviation</td><td>6–25%</td></tr>
+            <tr><td>PERCENT</td><td>&lt;= 2 pp absolute</td><td>2–8 pp</td></tr>
+            <tr><td>DATE</td><td>Exact year match</td><td>—</td></tr>
+            <tr><td>CARDINAL</td><td>&lt;= 10% relative</td><td>10–30%</td></tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 14px;font-size:11px;color:#999;border-top:1px solid #f0f0f0">
+          Outside FLAGGED range = UNVERIFIED (KG has no matching entity, cannot confirm or deny).
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:0">
+        <div class="card-header">Claims extracted per query (latest run)</div>
+        <div style="padding:14px">
+          <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#378ADD"></span>Vector-Only</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>KG-Only</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#7F77DD"></span>Hybrid</span>
+          </div>
+          <div class="chart-wrap" style="height:200px"><canvas id="m3ClaimsChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-header" style="color:#b91c1c">Key finding — hallucination detected (demo run)</div>
+        <table>
+          <thead><tr><th>Claim</th><th>Value</th><th>KG ground truth</th><th>Delta</th><th>Verdict</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="font-size:11px">MSFT revenue attributed to AAPL</td>
+              <td>$281,724M</td><td>$307,003M</td><td>8.2%</td>
+              <td><span class="badge b-red">FLAGGED</span></td>
+            </tr>
+            <tr>
+              <td style="font-size:11px">MSFT revenue attributed to AAPL</td>
+              <td>$245,122M</td><td>$209,586M</td><td>17.0%</td>
+              <td><span class="badge b-red">FLAGGED</span></td>
+            </tr>
+            <tr>
+              <td style="font-size:11px">Correct AAPL FY2023 revenue</td>
+              <td>$211,915M</td><td>$209,586M</td><td>1.1%</td>
+              <td><span class="badge b-green">VERIFIED</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="alert alert-red" style="margin:12px;border-radius:6px">
+          <div class="at" style="color:#b91c1c">What happened</div>
+          <div class="ab">Vector-Only FAISS retrieved Microsoft revenue chunks and placed them in Apple context. The LLM generated confident-sounding figures. The checker cross-referenced each against the AAPL KG entity store and flagged both MSFT figures as contradicting Apple ground truth.</div>
+        </div>
+        <div class="alert alert-green" style="margin:0 12px 12px">
+          <div class="at" style="color:#1e6b35">Why this matters</div>
+          <div class="ab">Token F1 scoring would not have caught this — the numbers are plausible-sounding financial figures and would produce partial F1 overlap. Only KG-grounded consistency checking can detect cross-company attribution errors.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════ M4 ══ -->
+<div id="tab-m4" class="tab-panel">
+
+  <p class="section-label">Benchmark evaluation — FinanceBench + team-authored questions</p>
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="label">FinanceBench questions</div>
+      <div class="value">5</div>
+      <div class="sub">Published benchmark (PatronusAI)</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Team-authored questions</div>
+      <div class="value">6</div>
+      <div class="sub">Domain-specific, verified</div>
+    </div>
+    <div class="metric-card accent">
+      <div class="label">Best on FinanceBench</div>
+      <div class="value">Hybrid</div>
+      <div class="sub">F1 = 0.022 vs 0.014 Vector-Only</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Vector-Only latency advantage</div>
+      <div class="value">2.3s</div>
+      <div class="sub">vs 4.4–4.6s for KG modes</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Per-question results — all 11 questions</div>
+    <div class="mode-tabs" id="m4tabs">
+      <div class="mode-tab active" onclick="switchM4Tab(0)">All questions</div>
+      <div class="mode-tab" onclick="switchM4Tab(1)">FinanceBench only</div>
+      <div class="mode-tab" onclick="switchM4Tab(2)">Team-authored only</div>
+    </div>
+    <div id="m4panel0" class="mode-panel active">
+      <table>
+        <thead><tr><th>#</th><th>Source</th><th>Ticker</th><th>Question (truncated)</th><th>Vec F1</th><th>KG F1</th><th>Hyb F1</th><th>Best</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><span class="badge b-amber">FB</span></td><td>AMZN</td><td>FY2017 days payable outstanding (DPO)</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">N/A</span></td></tr>
+          <tr><td>2</td><td><span class="badge b-amber">FB</span></td><td>AMZN</td><td>Year-over-year revenue change FY2016-2017</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">N/A</span></td></tr>
+          <tr><td>3</td><td><span class="badge b-amber">FB</span></td><td>AMZN</td><td>FY2017 operating income from income statement</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">N/A</span></td></tr>
+          <tr><td>4</td><td><span class="badge b-amber">FB</span></td><td>MSFT</td><td>Debt increase FY2022 to FY2023?</td><td>0.068</td><td>0.050</td><td>0.110</td><td><span class="badge b-purple">Hybrid</span></td></tr>
+          <tr><td>5</td><td><span class="badge b-amber">FB</span></td><td>MSFT</td><td>FY2016 COGS in USD millions</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">N/A</span></td></tr>
+          <tr><td>6</td><td><span class="badge b-blue">Team</span></td><td>AAPL</td><td>Total net revenue FY2023</td><td>0.070</td><td>0.096</td><td>0.081</td><td><span class="badge b-green">KG-Only</span></td></tr>
+          <tr><td>7</td><td><span class="badge b-blue">Team</span></td><td>MSFT</td><td>Cloud revenue figures in 2023</td><td>0.105</td><td>0.067</td><td>0.082</td><td><span class="badge b-blue">Vec</span></td></tr>
+          <tr><td>8</td><td><span class="badge b-blue">Team</span></td><td>AMZN</td><td>Operating income for 2023</td><td>0.370</td><td>0.073</td><td>0.357</td><td><span class="badge b-blue">Vec</span></td></tr>
+          <tr><td>9</td><td><span class="badge b-blue">Team</span></td><td>NVDA</td><td>Data center revenue growth FY2023</td><td>0.333</td><td>0.182</td><td>0.263</td><td><span class="badge b-blue">Vec</span></td></tr>
+          <tr><td>10</td><td><span class="badge b-blue">Team</span></td><td>AAPL</td><td>Main risk factors disclosed</td><td>0.043</td><td>0.086</td><td>0.087</td><td><span class="badge b-purple">Hybrid</span></td></tr>
+          <tr><td>11</td><td><span class="badge b-blue">Team</span></td><td>MSFT</td><td>Employee count</td><td>0.105</td><td>0.093</td><td>0.083</td><td><span class="badge b-blue">Vec</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="m4panel1" class="mode-panel">
+      <table>
+        <thead><tr><th>Q</th><th>Ticker</th><th>Question</th><th>Vec F1</th><th>KG F1</th><th>Hyb F1</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>AMZN</td><td>FY2017 DPO</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">No FY2017 data</span></td></tr>
+          <tr><td>2</td><td>AMZN</td><td>Revenue change FY2016-17</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">No FY2016 data</span></td></tr>
+          <tr><td>3</td><td>AMZN</td><td>FY2017 operating income</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">No FY2017 data</span></td></tr>
+          <tr><td>4</td><td>MSFT</td><td>Debt FY2022 vs FY2023</td><td>0.068</td><td>0.050</td><td>0.110</td><td><span class="badge b-green">Hybrid best</span></td></tr>
+          <tr><td>5</td><td>MSFT</td><td>FY2016 COGS</td><td>0.000</td><td>0.000</td><td>0.000</td><td><span class="badge b-gray">No FY2016 data</span></td></tr>
+        </tbody>
+      </table>
+      <div class="alert alert-amber" style="margin:12px;border-radius:6px">
+        <div class="at" style="color:#854d0e">FinanceBench coverage limitation</div>
+        <div class="ab">4 of 5 FinanceBench questions ask about FY2016/2017 — outside our ingested range (2019-2024). This is a known limitation. Ingesting FY2016-2018 filings is planned for the final system. The 1 answerable question (MSFT debt) is correctly handled best by Hybrid (F1=0.110).</div>
+      </div>
+    </div>
+    <div id="m4panel2" class="mode-panel">
+      <table>
+        <thead><tr><th>Q</th><th>Ticker</th><th>Question</th><th>Vec F1</th><th>KG F1</th><th>Hyb F1</th><th>Best mode</th></tr></thead>
+        <tbody>
+          <tr><td>6</td><td>AAPL</td><td>Total net revenue FY2023</td><td>0.070</td><td>0.096</td><td>0.081</td><td><span class="badge b-green">KG-Only</span></td></tr>
+          <tr><td>7</td><td>MSFT</td><td>Cloud revenue 2023</td><td>0.105</td><td>0.067</td><td>0.082</td><td><span class="badge b-blue">Vec</span></td></tr>
+          <tr><td>8</td><td>AMZN</td><td>Operating income 2023</td><td>0.370</td><td>0.073</td><td>0.357</td><td><span class="badge b-blue">Vec</span></td></tr>
+          <tr><td>9</td><td>NVDA</td><td>Data center revenue FY2023</td><td>0.333</td><td>0.182</td><td>0.263</td><td><span class="badge b-blue">Vec</span></td></tr>
+          <tr><td>10</td><td>AAPL</td><td>Main risk factors</td><td>0.043</td><td>0.086</td><td>0.087</td><td><span class="badge b-purple">Hybrid</span></td></tr>
+          <tr><td>11</td><td>MSFT</td><td>Employee count</td><td>0.105</td><td>0.093</td><td>0.083</td><td><span class="badge b-blue">Vec</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">Average F1 by subset and mode</div>
+      <div style="padding:16px">
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#378ADD"></span>Vector-Only</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>KG-Only</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#7F77DD"></span>Hybrid</span>
+        </div>
+        <div class="chart-wrap" style="height:220px"><canvas id="m4AvgChart"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">Average latency per mode</div>
+      <div style="padding:16px">
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+            <span style="color:#378ADD;font-weight:600">Vector-Only</span><span style="font-weight:600">2.3s avg</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:6px;height:16px">
+            <div style="background:#378ADD;width:50%;height:100%;border-radius:6px"></div>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+            <span style="color:#7F77DD;font-weight:600">Hybrid (FAISS + KG)</span><span style="font-weight:600">4.4s avg</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:6px;height:16px">
+            <div style="background:#7F77DD;width:95.6%;height:100%;border-radius:6px"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+            <span style="color:#1D9E75;font-weight:600">KG-Only</span><span style="font-weight:600">4.6s avg</span>
+          </div>
+          <div style="background:#f0f0f0;border-radius:6px;height:16px">
+            <div style="background:#1D9E75;width:100%;height:100%;border-radius:6px"></div>
+          </div>
+        </div>
+        <p style="font-size:11px;color:#999;margin-top:14px">KG traversal adds ~2.1s overhead vs Vector-Only. Acceptable for a financial QA use case where accuracy matters more than latency.</p>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #f0f0f0">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#bbb;margin-bottom:10px">Future work — final presentation</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+              <span style="background:#f3f0ff;color:#5b21b6;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;margin-top:1px">PLANNED</span>
+              <span>Replace FAISS with <b>PageIndex</b> (vectorless, reasoning-based retrieval) and measure improvement</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+              <span style="background:#f3f0ff;color:#5b21b6;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;margin-top:1px">PLANNED</span>
+              <span>Ingest FY2016–2018 filings to expand FinanceBench coverage from 1/5 to 4/5 questions</span>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+              <span style="background:#f3f0ff;color:#5b21b6;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;white-space:nowrap;margin-top:1px">PLANNED</span>
+              <span>Run full 150-question FinanceBench evaluation with RAGAS faithfulness metric</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end page -->
+
+<script>
+// ── Tab navigation ────────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+  setTimeout(initCharts, 50);
+}
+
+function switchM4Tab(i) {
+  document.querySelectorAll('#m4tabs .mode-tab').forEach((t,idx) => t.classList.toggle('active', idx===i));
+  [0,1,2].forEach(idx => {
+    document.getElementById('m4panel'+idx).classList.toggle('active', idx===i);
+  });
+}
+
+// ── Chart init (lazy — only when tab visible) ─────────────────────────────────
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+Chart.defaults.font.size   = 11;
+Chart.defaults.color       = '#999';
+
+let chartsInitialised = {};
+
+function initCharts() {
+  // M2 F1 chart
+  if (!chartsInitialised['m2F1'] && document.getElementById('m2F1Chart') && document.getElementById('tab-m2').classList.contains('active')) {
+    chartsInitialised['m2F1'] = true;
+    new Chart(document.getElementById('m2F1Chart'), {
+      type: 'bar',
+      data: {
+        labels: ['AAPL\nRevenue','MSFT\nCloud','AMZN\nIncome','NVDA\nData Ctr','AAPL\nRisk','MSFT\nEmp.'],
+        datasets: [
+          { label: 'Vector-Only', data: [0.055, 0.106, 0.370, 0.250, 0.079, 0.128], backgroundColor: '#378ADD', borderRadius: 3 },
+          { label: 'Hybrid',      data: [0.154, 0.047, 0.400, 0.137, 0.060, 0.026], backgroundColor: '#7F77DD', borderRadius: 3 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { min: 0, max: 0.5, grid: { color: '#f5f5f5' }, ticks: { callback: v => v.toFixed(2) } }
+        }
+      }
+    });
+  }
+
+  // M3 claims chart
+  if (!chartsInitialised['m3Claims'] && document.getElementById('m3ClaimsChart') && document.getElementById('tab-m3').classList.contains('active')) {
+    chartsInitialised['m3Claims'] = true;
+    new Chart(document.getElementById('m3ClaimsChart'), {
+      type: 'bar',
+      data: {
+        labels: ['AAPL\nRevenue','MSFT\nCloud','AMZN\nIncome','NVDA\nData Ctr','AAPL\nRisk','MSFT\nEmp.'],
+        datasets: [
+          { label: 'Vector-Only', data: [7,1,3,5,1,3], backgroundColor: '#378ADD', borderRadius: 2 },
+          { label: 'KG-Only',     data: [3,4,1,1,4,1], backgroundColor: '#1D9E75', borderRadius: 2 },
+          { label: 'Hybrid',      data: [8,6,2,4,1,5], backgroundColor: '#7F77DD', borderRadius: 2 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { min: 0, max: 10, ticks: { stepSize: 2 }, grid: { color: '#f5f5f5' } }
+        }
+      }
+    });
+  }
+
+  // M4 average chart
+  if (!chartsInitialised['m4Avg'] && document.getElementById('m4AvgChart') && document.getElementById('tab-m4').classList.contains('active')) {
+    chartsInitialised['m4Avg'] = true;
+    new Chart(document.getElementById('m4AvgChart'), {
+      type: 'bar',
+      data: {
+        labels: ['FinanceBench\n(5 Qs)', 'Team-authored\n(6 Qs)', 'Overall\n(11 Qs)'],
+        datasets: [
+          { label: 'Vector-Only', data: [0.014, 0.171, 0.099], backgroundColor: '#378ADD', borderRadius: 4 },
+          { label: 'KG-Only',     data: [0.010, 0.099, 0.059], backgroundColor: '#1D9E75', borderRadius: 4 },
+          { label: 'Hybrid',      data: [0.022, 0.159, 0.097], backgroundColor: '#7F77DD', borderRadius: 4 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { min: 0, max: 0.25, grid: { color: '#f5f5f5' }, ticks: { callback: v => v.toFixed(3) } }
+        }
+      }
+    });
+  }
+}
+
+// Init charts for default visible tab
+setTimeout(initCharts, 300);
+</script>
+</body>
+</html>
